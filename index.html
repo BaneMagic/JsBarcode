@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="JsBarcode.all.min.js"></script>
+    <title>Document</title>
+    <style>
+        body{font-family:Arial; background-color: #f9f9f9; padding: 20px;}
+        .container{display:flex; gap:30px; align-items: flex-start;}
+        .form{width:350px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); flex-shrink: 0;}
+        .selectedBokkContainer{display:flex; gap:15px; flex-wrap:wrap; align-items:flex-start;}
+        .bukuCard{border:1px solid #ddd; padding:10px; width:180px; text-align:center; border-radius:8px; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.05); flex-shrink: 0;}
+        .bukuCard img{width:100%; height:150px; object-fit:cover; border-radius: 4px;}
+        .barcode-item { width: 100%; height: auto; margin-top: 10px; }
+        .barcode-table { width: 80px; height: auto; display: block; margin: 5px auto; }
+        table{ border-collapse:collapse; width:100%; margin-top:20px; background: white; }
+        th,td{ border:1px solid #333; padding:6px; text-align:center; font-size: 13px; }
+        th { background-color: #f2f2f2; }
+        input,button{ margin:4px; padding:6px; }
+        button { cursor: pointer; }
+    </style>
+</head>
+<body>
+       
+    <h2>Form Peminjaman Buku</h2>
+    <div class="container">
+        <div class="form">
+            <input type="text" name="kodepinjam" id="kodePinjam" placeholder="Kode Pinjam">
+            <button onclick="cekKode()">cek kode</button> <br>
+
+            <input type="date" name="tanggalPeminjaman" id="tglPinjam" disabled>
+
+            <input type="text" name="namaAnggota" id="nama" disabled placeholder="Nama Anggota">
+            
+            <label for="jumlah">Jumlah Pinjam</label>
+            <input type="number" min="1" max="2" value="1" name="jumlah" id="jumlah" disabled>
+            
+            <input type="text" name="isbn1" id="isbn1" placeholder="ISBN 1" disabled>
+            <input type="text" name="isbn2" id="isbn2" placeholder="ISBN 2" disabled><br>
+
+            <button type="button" onclick="pinjam()" disabled id="btnPinjam">Pinjam</button>
+            <button type="button" onclick="kembalikan()" disabled id="btnKembali">Kembalikan</button>
+            <input type="date" id="tanggalKembali">
+
+        </div>
+
+        <div class="selectedBook">
+            <h3>Buku Yang Pipilih</h3>
+            <div class="selectedBokkContainer" id="hasilBuku"></div>
+        </div>
+    </div>
+
+    <h3>Data Peminjaman</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>No</th>
+                <th>kode Peminjaman</th>
+                <th>Tanggal Peminjaman</th>
+                <th>Nama Anggota</th>
+                <th>ISBN 1</th> 
+                <th>ISBN 2</th>
+                <th>Batas</th>
+                <th>Tanggal Kembali</th>
+                <th>Denda</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="tablePinjam"></tbody>
+    </table>
+    <h3>Daftar Buku</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>No</th>
+                <th>ISBN</th>
+                <th>Cover Buku</th>
+                <th>Judul</th>
+                <th>Penulis</th>
+                <th>Tahun Terbit</th>
+            </tr>
+        </thead>
+        <tbody id="tableBuku"></tbody>
+    </table>
+
+    <script>
+            const buku=[
+                {isbn:"B001",judul:"Bersenja Gurau",penerbit:"Raim Laode",tahun:2023,cover:"gambaBuku/buku1.jpg"},
+                {isbn:"B002",judul:"One Punch Man",penerbit:"Yusuke Murata",tahun:2012,cover:"gambaBuku/buku2.jpg"},
+                {isbn:"B003",judul:"Be The One",penerbit:"Shogo Muto",tahun:2017,cover:"gambaBuku/buku3.jpg"},
+                {isbn:"jv2ueh1889823",judul:"Yang Telah lama Crt",penerbit:"KantaruGaler",tahun:2015,cover:"gambaBuku/buku4.jpg"}
+            ]
+
+            let peminjaman=[]
+            const batasHari=5
+            const dendaHari=5000
+
+            tglPinjam.value=new Date().toISOString().split("T")[0]
+
+            function savePeminjaman(){
+                try{ localStorage.setItem('peminjaman', JSON.stringify(peminjaman)); }
+                catch(e){ console.error('Gagal menyimpan localStorage', e); }
+            }
+
+            function loadPeminjaman(){
+                try{
+                    const raw = localStorage.getItem('peminjaman');
+                    if(raw){ peminjaman = JSON.parse(raw); }
+                    else{ peminjaman = []; }
+                }catch(e){ peminjaman = []; console.error('Gagal memuat localStorage', e); }
+            }
+
+            // function loadPeminjamanBuku(){
+            //     const kode = kodePinjam.value.trim();
+            //     const data = peminjaman.find(p => p.kode == kode);
+            //     if(data){
+            //         isbn1.value = data.isbn1;
+            //         isbn2.value = data.isbn2;
+            //         tampilBuku();
+            //     } else {
+            //         isbn1.value = "";
+            //         isbn2.value = "";
+            //         hasilBuku.innerHTML = "";
+            //     }
+
+            // }
+
+            function resetForm(){
+                kodePinjam.value=""; nama.value=""; isbn1.value=""; isbn2.value="";
+                jumlah.value=1; tanggalKembali.value="";
+                tglPinjam.disabled=nama.disabled=jumlah.disabled=isbn1.disabled=isbn2.disabled=true;
+                btnPinjam.disabled=btnKembali.disabled=true;
+                hasilBuku.innerHTML=""; 
+                tglPinjam.value=new Date().toISOString().split("T")[0];
+            }
+
+            function cekKode(){
+                const kode=kodePinjam.value.trim();
+                if(kode==""){ alert("Masukkan kode"); return; }
+                let data=peminjaman.find(p=>p.kode==kode);
+                if(!data){
+                    tglPinjam.disabled=nama.disabled=jumlah.disabled=isbn1.disabled=false;
+                    btnPinjam.disabled=false;
+                    btnKembali.disabled=true;
+                }else if (data.status == "Dikembalikan"){
+                    alert("Kode peminjaman sudah Dikembalikan!");
+                    resetForm();
+                    return;
+                }
+                else{
+                    btnPinjam.disabled=true;
+                    btnKembali.disabled=false;
+                }
+                // loadPeminjamanBuku();
+            }
+
+            jumlah.onchange = function(){
+                if(jumlah.value == 2){
+                    isbn2.disabled = false;
+                } else if(jumlah.value > 2){
+                    alert("Maksimal 2 buku");
+                    jumlah.value = 2;
+                    isbn2.disabled = false;
+                    return;
+                } else {
+                    isbn2.disabled = true;
+                    isbn2.value = "";
+                    tampilBuku();
+                }
+            }
+            
+            function updateBarcodes(className) {
+                const elements = document.querySelectorAll('.' + className);
+                elements.forEach(el => {
+                    const val = el.getAttribute('data-isbn');
+                    if(val) {
+                        JsBarcode(el, val, { format: 'code128', width: 2, height: 28, displayValue: false });
+                    }
+                });
+            }
+
+            function tampilBuku(){
+                const val1 = isbn1.value.toUpperCase();
+                const val2 = isbn2.value.toUpperCase();
+                let hasil = buku.filter(b => b.isbn == val1 || b.isbn == val2);
+
+                hasilBuku.innerHTML="";
+                hasil.forEach(b => {
+                    hasilBuku.innerHTML += `
+                        <div class="bukuCard">
+                            <img src="${b.cover}" alt="cover">
+                            <h4 style="font-size:14px; margin:10px 0 5px;">${b.judul}</h4>
+                            <p style="font-size:12px; color:#666;">${b.penerbit} (${b.tahun})</p>
+                            <svg class="barcode-item" data-isbn="${b.isbn}"></svg>
+                        </div>
+                    `;
+                });
+                if(hasil.length > 0) updateBarcodes('barcode-item');
+            }
+
+            isbn1.oninput=()=>tampilBuku()
+            isbn2.oninput=()=>tampilBuku()
+
+            function pinjam(){
+                let kode=kodePinjam.value; let tgl=tglPinjam.value;
+                let nm=nama.value; let i1=isbn1.value.toUpperCase();
+                let i2=isbn2.value.toUpperCase();
+
+                if(!buku.some(b=>b.isbn==i1)){ alert("ISBN1 tidak ada"); return; }
+                if(jumlah.value==2 && !buku.some(b=>b.isbn==i2)){ alert("ISBN2 tidak ada"); return; }
+
+                let batas=new Date(tgl);
+                batas.setDate(batas.getDate() + batasHari);
+                
+                peminjaman.push({
+                    kode:kode, tgl:tgl, nama:nm, isbn1:i1, isbn2:i2,
+                    batas:batas.toISOString().split("T")[0], tglKembali:"", denda:0, status:"Dipinjam"
+                })
+
+                savePeminjaman();
+                alert("Berhasil pinjam");
+                tampilPinjam();
+                resetForm();
+            }
+
+            function tampilPinjam(){
+                tablePinjam.innerHTML=""
+                peminjaman.forEach((p,i)=>{
+                    let barcode2 = p.isbn2 ? `<svg class="barcode-table" data-isbn="${p.isbn2}"></svg>` : '-';
+                    tablePinjam.innerHTML+=`
+                    <tr>
+                        <td>${i+1}</td>
+                        <td>${p.kode}</td>
+                        <td>${p.tgl}</td>
+                        <td>${p.nama}</td>
+                        <td>${p.isbn1}<svg class="barcode-table" data-isbn="${p.isbn1}"></svg></td>
+                        <td>${p.isbn2 || '-'}${barcode2}</td>
+                        <td>${p.batas}</td>
+                        <td>${p.tglKembali}</td>
+                        <td>Rp ${p.denda}</td>
+                        <td>${p.status}</td>
+                    </tr>`
+                })
+                updateBarcodes('barcode-table');
+            }
+
+            function tampilDaftarBuku(){
+                tableBuku.innerHTML=""
+                buku.forEach((b,i)=>{
+                    tableBuku.innerHTML+=`<tr><td>${i+1}</td><td>${b.isbn}</td><td><img src="${b.cover}" alt="cover" style="width:80px;height:auto;"></td><td>${b.judul}</td><td>${b.penerbit}</td><td>${b.tahun}</td></tr>`
+                })
+            }
+
+            function kembalikan(){
+                let kode = kodePinjam.value;
+                let tgl = tanggalKembali.value;
+                if(!tgl) { alert("Pilih tanggal kembali!"); return; }
+
+                let i = peminjaman.findIndex(p => p.kode == kode);
+                if(i == -1){ alert("Kode tidak ditemukan"); return; }
+
+                let tglDeadline = new Date(peminjaman[i].batas);
+                let tglAktualKembali = new Date(tgl);
+                let selisihWaktu = tglAktualKembali - tglDeadline;
+                let jumlahHariLewat = Math.ceil(selisihWaktu / (1000 * 60 * 60 * 24));
+
+                let denda = 0;
+                if(jumlahHariLewat > 0) denda = jumlahHariLewat * dendaHari;
+
+                peminjaman[i].denda = denda;
+                peminjaman[i].tglKembali = tgl;
+                peminjaman[i].status = "Dikembalikan";
+
+                savePeminjaman();
+
+                alert(denda > 0 ? `Telat ${jumlahHariLewat} hari. Denda: Rp ${denda}` : "Tepat waktu!");
+                tampilPinjam();
+                resetForm();
+            }
+
+            // Inisialisasi: muat data dari localStorage lalu tampilkan
+            loadPeminjaman();
+            tampilDaftarBuku();
+            tampilPinjam();
+        </script>
+</body>
+</html>
